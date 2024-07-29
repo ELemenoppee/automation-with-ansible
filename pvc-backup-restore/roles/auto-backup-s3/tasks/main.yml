@@ -1,0 +1,23 @@
+---
+# tasks file for auto-backup-s3
+
+    - name: Create {{ app_name }} Folder
+      command: |
+         mkdir /root/{{ app_name }}
+
+    - name: Create {{ app_name }}.files
+      copy:
+        dest: /root/{{ app_name }}/{{ app_name }}.files
+        content: |
+          /opt/local-path-provisioner/{{ pvc_name }}
+
+    - name: Add cron job to run auto backup script every Sunday at 2 AM
+      cron:
+        name: "Auto backup script {{ app_name }}"
+        minute: "0"
+        hour: "2"
+        day: "*"
+        month: "*"
+        weekday: "*"
+        user: "root"
+        job: ". ~/.restic.env ; restic backup --files-from=/root/{{ app_name }}/{{ app_name }}.files --tag {{ app_name }} 2>> /root/restic-logs/restic.err >> /root/restic-logs/restic.log"

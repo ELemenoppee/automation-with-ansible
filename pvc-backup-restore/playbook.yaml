@@ -1,0 +1,71 @@
+---
+
+- name: Automated PVC Creation
+  become: yes
+  hosts: all
+  vars_prompt:
+    - name: "aws_access_key_id"
+      prompt: "Enter AWS Access Key ID"
+      private: no
+    - name: "aws_secret_access_key"
+      prompt: "Enter AWS Secret Access Key"
+      private: yes
+    - name: "bucket_name"
+      prompt: "Enter S3 Bucket Name"
+      private: no
+    - name: "pvc_name"
+      prompt: "Enter PVC Folder Name"
+      private: no
+    - name: "app_name"
+      prompt: "Enter Application Name"
+      private: no
+
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+    RESTIC_REPOSITORY: "s3:s3.ap-southeast-2.amazonaws.com/{{ bucket_name }}"
+
+  tasks:
+    - name: Check if Restic is installed
+      command: restic version
+      register: restic_installed
+      ignore_errors: yes
+
+    - name: Installed Restic if not installed
+      apt:
+        name: restic
+        state: present
+      when: restic_installed.failed
+
+    - name: Create .restic.env file
+      copy:
+        dest: /root/.restic.env
+        content: |
+          export AWS_ACCESS_KEY_ID="{{ aws_access_key_id }}"
+          export AWS_SECRET_ACCESS_KEY="{{ aws_secret_access_key }}"
+          export RESTIC_PASSWORD="emNlQ0EsSHQsQHdRa2F5fXt5cikwXSs8aE9Ce2MqYF0="
+          export RESTIC_REPOSITORY="s3:s3.ap-southeast-2.amazonaws.com/{{ bucket_name }}"
+
+    - name: Set permissions on .restic.env
+      file:
+        path: /root/.restic.env
+        owner: root
+        group: root
+        mode: '0400'
+
+    - name: Check if restic-logs directory exists
+      stat:
+        path: /root/restic-logs
+      register: restic_logs_dir
+
+    - name: Create restic-logs directory if it does not exist
+      file:
+        path: /root/restic-logs
+        state: directory
+      when: not restic_logs_dir.stat.exists
+
+  roles:
+    # - 'initialize-repository'
+    - 'on-demand-backup-s3'
+    - 'auto-backup-s3'
+    # - 'auto-remove-snapshot'

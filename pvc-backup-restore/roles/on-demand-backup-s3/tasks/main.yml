@@ -1,0 +1,10 @@
+---
+# tasks file for on-demand-backup-s3
+
+    - name: On-Demand Backup to S3
+      command: restic backup /opt/local-path-provisioner/{{ pvc_name }}
+      environment:
+         AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+         AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+         RESTIC_REPOSITORY: "s3:s3.ap-southeast-2.amazonaws.com/{{ bucket_name }}"
+         RESTIC_PASSWORD: "emNlQ0EsSHQsQHdRa2F5fXt5cikwXSs8aE9Ce2MqYF0="

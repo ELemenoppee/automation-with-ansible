@@ -1,0 +1,32 @@
+---
+# tasks file for auto-remove-snapshot
+
+    - name: Create cron-job-backup-prune.sh
+      copy:
+        dest: /root/cron-job-bash-prune.sh
+        content: |
+          #!/bin/bash
+          # Source the Restic environment variables
+          source ~/.restic.env
+          # Run the forget command with your retention policy
+          restic forget --keep-last=7 --keep-weekly=4 --keep-monthly=12 --prune
+          # Log the output (optional)
+          echo "$(date) - Forget and Prune Completed" >> /root/restic-logs/restic-maintenance.log 2>&1
+
+    - name: Set permissions on cron-job-backup-prune.sh
+      file:
+        path: /root/cron-job-bash-prune.sh
+        owner: root
+        group: root
+        mode: '0100'
+   
+    - name: Add cron job to run backup prune script every Sunday at 3 AM
+      cron:
+        name: "Backup prune script"
+        minute: "0"
+        hour: "3"
+        day: "*"
+        month: "*"
+        weekday: "0"
+        user: "root"
+        job: "/bin/bash /root/cronjob-backup-prune.sh"

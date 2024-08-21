@@ -1,0 +1,37 @@
+---
+- hosts: "masters,workers"
+  remote_user: ubuntu
+  become: yes
+  become_method: sudo
+  become_user: root
+  gather_facts: yes
+  connection: ssh
+
+  tasks:
+    - name: Replace config_path in containerd config.toml
+      ansible.builtin.replace:
+        path: /etc/containerd/config.toml
+        regexp: '^(\s*\[plugins\."io\.containerd\.grpc\.v1\.cri"\.registry\]\s*)config_path = ""$'
+        replace: '\1config_path = "/etc/containerd/certs.d"'
+        backup: yes
+
+    - name: Create containerd host directory
+      shell: |
+                sudo mkdir -p /etc/containerd/certs.d/_default
+
+    - name: Create containerd host file
+      file:
+        path: "/etc/containerd/certs.d/_default/hosts.toml"
+        state: "touch"
+
+    - name: Add conf for host containerd file
+      blockinfile:
+       path: "/etc/containerd/certs.d/_default/hosts.toml"
+       block: |
+              server = "https://<your-domain-or-ip:5000>/v2/"
+              [host."https://<your-domain-or-ip:5000>/v2/"]
+                capabilities = ["pull", "resolve", push]
+                skip_verify = true # this is optional
+
+    - name: Restart containerd
+      command: sudo systemctl restart containerd

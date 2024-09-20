@@ -1,0 +1,2 @@
+[machines]
+<REMOTE_IP> ansible_host=<REMOTE_IP> ansible_user=<username>

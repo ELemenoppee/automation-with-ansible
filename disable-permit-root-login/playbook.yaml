@@ -1,0 +1,19 @@
+---
+- name: Disable root login via SSH
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure PermitRootLogin is set to 'no' in sshd_config
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+        backup: yes
+      notify:
+        - Restart SSHD
+
+  handlers:
+    - name: Restart SSHD
+      service:
+        name: sshd
+        state: restarted

@@ -1,0 +1,42 @@
+---
+- name: Gather open ports on servers and fetch the results
+  hosts: all
+  become: yes
+  tasks:
+    - name: Check if 'net-tools' (netstat) is installed
+      command: which netstat
+      register: netstat_check
+      ignore_errors: yes
+
+    - name: Install net-tools if netstat is not available
+      apt:
+        name: net-tools
+        state: present
+      when: netstat_check.rc != 0
+      become: yes
+
+    - name: Gather open ports using netstat
+      command: netstat -tuln
+      register: netstat_output
+      when: netstat_check.rc == 0
+
+    - name: Gather open ports using ss (if netstat not available)
+      command: ss -tuln
+      register: ss_output
+      when: netstat_check.rc != 0
+
+    - name: Save open ports to a file on the remote server
+      copy:
+        content: "{{ netstat_output.stdout | default(ss_output.stdout) }}"
+        dest: "/tmp/open_ports_{{ inventory_hostname }}.txt"
+
+    - name: Fetch the open ports file to Ansible server
+      fetch:
+        src: "/tmp/open_ports_{{ inventory_hostname }}.txt"
+        dest: "/tmp/open_ports_{{ inventory_hostname }}.txt"
+        flat: yes
+
+    - name: Remove the open ports file from the remote server
+      file:
+        path: "/tmp/open_ports_{{ inventory_hostname }}.txt"
+        state: absent

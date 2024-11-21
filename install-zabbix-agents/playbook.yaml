@@ -1,0 +1,72 @@
+---
+- name: Install Zabbix Agent 2 based on OS version
+  hosts: all
+  become: yes
+  become_user: root
+  tasks:
+    - name: Get the OS version
+      command: lsb_release -r
+      register: os_version
+      changed_when: false
+
+    - name: Set Zabbix repository URL for Ubuntu 20.04 (Focal) or 22.04 (Jammy)
+      set_fact:
+        zabbix_repo_url: >
+          {{ 'https://repo.zabbix.com/zabbix/6.4/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest+ubuntu20.04_all.deb'
+             if os_version.stdout is search('20.04') else
+             'https://repo.zabbix.com/zabbix/6.4/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest+ubuntu22.04_all.deb' }}
+
+    - name: Download the Zabbix repository package
+      get_url:
+        url: "{{ zabbix_repo_url }}"
+        dest: /tmp/zabbix-release.deb
+
+    - name: Install the Zabbix repository package
+      command: dpkg -i /tmp/zabbix-release.deb
+
+    # - name: Update apt cache
+    #   apt:
+    #     update_cache: yes
+
+    - name: Install Zabbix Agent 2 and plugins
+      apt:
+        name:
+          - zabbix-agent2
+          - zabbix-agent2-plugin-*
+        state: present
+
+    - name: Configure Zabbix Agent 2 - Server
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^Server='
+        line: 'Server=52.63.162.103'
+        state: present
+
+    - name: Configure Zabbix Agent 2 - ServerActive
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^ServerActive='
+        line: 'ServerActive=52.63.162.103'
+        state: present
+
+    - name: Configure Zabbix Agent 2 - Hostname
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^Hostname='
+        line: "Hostname={{ ansible_hostname }}"
+        state: present
+
+    - name: Start and enable Zabbix Agent 2
+      systemd:
+        name: zabbix-agent2
+        enabled: yes
+        state: started
+
+    - name: Check Zabbix Agent 2 service status
+      command: systemctl status zabbix-agent2
+      register: zabbix_agent_status
+      changed_when: false
+
+    - name: Display Zabbix Agent 2 service status
+      debug:
+        msg: "{{ zabbix_agent_status.stdout }}"

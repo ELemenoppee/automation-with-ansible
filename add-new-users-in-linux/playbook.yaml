@@ -12,6 +12,9 @@
     - name: "grant_sudo"
       prompt: "Should the new user be a sudoer? (yes/no)"
       private: no
+    - name: "authorized_key"
+      prompt: "Enter the authorized key for the user (leave empty to skip)"
+      private: no
 
   tasks:
     - name: Add the new user with password
@@ -37,3 +40,31 @@
         line: '{{ new_username }} ALL=(ALL) NOPASSWD:ALL'
         validate: 'visudo -cf %s'
       when: grant_sudo == "yes"
+
+    - name: Create .ssh directory if it doesn't exist
+      file:
+        path: "/home/{{ new_username }}/.ssh"
+        state: directory
+        owner: "{{ new_username }}"
+        group: "{{ new_username }}"
+        mode: '0700'
+
+    - name: Create authorized_keys file if it doesn't exist
+      file:
+        path: "/home/{{ new_username }}/.ssh/authorized_keys"
+        state: touch
+        owner: "{{ new_username }}"
+        group: "{{ new_username }}"
+        mode: '0600'
+
+    - name: Check if the user has provided an authorized key
+      debug:
+        msg: "No authorized key provided. Skipping key addition."
+      when: authorized_key == ""
+
+    - name: Add authorized key to the user's authorized_keys file
+      lineinfile:
+        path: "/home/{{ new_username }}/.ssh/authorized_keys"
+        line: "{{ authorized_key }}"
+        state: present
+      when: authorized_key != ""

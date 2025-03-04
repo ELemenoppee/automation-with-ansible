@@ -1,0 +1,81 @@
+- name: Offboard a user, backup home directory, and transfer to Ansible control node
+  hosts: all
+  become: true
+  gather_facts: false
+  vars_prompt:
+    - name: "target_username"
+      prompt: "Enter the username to remove"
+      private: no
+    - name: "remove_home"
+      prompt: "Remove home directory? (yes/no)"
+      private: no
+    - name: "s3_bucket"
+      prompt: "Enter the S3 bucket name (leave empty to skip backup)"
+      private: no
+    - name: "aws_access_key"
+      prompt: "Enter AWS Access Key ID"
+      private: yes
+    - name: "aws_secret_key"
+      prompt: "Enter AWS Secret Access Key"
+      private: yes
+    - name: "aws_region"
+      prompt: "Enter AWS Region"
+      private: no
+
+  tasks:
+    - name: Get the hostname of the target machine
+      command: hostname
+      register: hostname_result
+      changed_when: false
+
+    - name: Define archive filename
+      set_fact:
+        archive_name: "/tmp/{{ hostname_result.stdout }}-{{ target_username }}.tar.gz"
+
+    - name: Archive user's home directory
+      ansible.builtin.command:
+        cmd: "tar -czf {{ archive_name }} -C /home {{ target_username }}"
+      when: remove_home == "yes" or remove_home == "no"
+
+    - name: Fetch the archive to the Ansible control node
+      ansible.builtin.fetch:
+        src: "{{ archive_name }}"
+        dest: "/tmp/"
+        flat: yes
+      when: remove_home == "yes" or remove_home == "no"
+
+    - name: Remove user from the system if home directory is removed
+      ansible.builtin.user:
+        name: "{{ target_username }}"
+        state: absent
+        remove: true
+      when: remove_home == "yes"
+
+    - name: Disable user instead of removing if home directory is kept
+      ansible.builtin.user:
+        name: "{{ target_username }}"
+        password_lock: true
+        shell: "/usr/sbin/nologin"
+      when: remove_home == "no"
+
+    - name: Store AWS and S3 variables globally
+      ansible.builtin.add_host:
+        name: "global_facts"
+        ansible_s3_bucket: "{{ s3_bucket | default('') }}"
+        ansible_aws_access_key: "{{ aws_access_key }}"
+        ansible_aws_secret_key: "{{ aws_secret_key }}"
+        ansible_aws_region: "{{ aws_region }}"
+        ansible_archive_name: "/tmp/{{ hostname_result.stdout }}-{{ target_username }}.tar.gz"
+      run_once: true
+
+- name: Upload backup to S3 from Ansible control node
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Upload archive to S3
+      ansible.builtin.shell: >
+        AWS_ACCESS_KEY_ID='{{ hostvars["global_facts"]["ansible_aws_access_key"] }}'
+        AWS_SECRET_ACCESS_KEY='{{ hostvars["global_facts"]["ansible_aws_secret_key"] }}'
+        AWS_DEFAULT_REGION='{{ hostvars["global_facts"]["ansible_aws_region"] }}'
+        aws s3 cp {{ hostvars["global_facts"]["ansible_archive_name"] }} s3://{{ hostvars["global_facts"]["ansible_s3_bucket"] }}/{{ hostvars["global_facts"]["ansible_archive_name"] | basename }}
+      when: hostvars["global_facts"]["ansible_s3_bucket"] | length > 0

@@ -1,6 +1,6 @@
 ---
 - hosts: "masters"
-  remote_user: ubuntu
+  remote_user: coinop
   become: yes
   become_method: sudo
   become_user: root
@@ -10,7 +10,6 @@
   tasks:
     - name: install Pod network
       become: yes
-      become_user: ubuntu
       shell: sudo kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.0/manifests/calico.yaml
       args:
         chdir: $HOME

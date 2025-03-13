@@ -1,5 +1,5 @@
 ---
-- hosts: "masters,workers"
+- hosts: "workers"
   remote_user: coinop
   become: yes
   become_method: sudo
@@ -57,12 +57,12 @@
      - name: Apply new settings
        command: sudo sysctl --system
 
+     - name: Install update
+       command: sudo apt update
+
      - name: install containerd
        shell: |
                sudo apt install -y curl gnupg2 software-properties-common apt-transport-https ca-certificates --allow-change-held-packages
-
-     - name: Install update
-       command: sudo apt update
 
      - name: Install update containerd
        command: sudo apt install -y containerd --allow-change-held-packages

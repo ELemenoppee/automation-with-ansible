@@ -8,17 +8,6 @@
   connection: ssh
 
   tasks:
-     - name: initialize the cluster
-       shell: |
-               kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address={{ ansible_host }}
-       when: inventory_hostname == "master1"
-
-     - name: After initializing the cluster
-       shell: |
-               mkdir -p $HOME/.kube
-               sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-               sudo chown $(id -u):$(id -g) $HOME/.kube/config
-
      - name: Get the token for joining the worker nodes
        shell: kubeadm token create  --print-join-command
        register: kubernetes_join_command

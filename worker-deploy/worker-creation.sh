@@ -12,21 +12,15 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-$ansible_playbook_command master-config.yaml
+$ansible_playbook_command display-token.yaml
 if [ $? -ne 0 ]; then
-    echo "Error encountered in master-config.yaml playbook. Exiting."
+    echo "Error encountered in display-token.yaml playbook. Exiting."
     exit 1
 fi
 
 $ansible_playbook_command join-workers.yaml
 if [ $? -ne 0 ]; then
     echo "Error encountered in join-workers.yaml playbook. Exiting."
-    exit 1
-fi
-
-$ansible_playbook_command post-config.yaml
-if [ $? -ne 0 ]; then
-    echo "Error encountered in post-config.yaml playbook. Exiting."
     exit 1
 fi
 
@@ -37,5 +31,3 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "All playbooks executed successfully."
-
-
